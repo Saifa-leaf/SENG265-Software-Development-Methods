@@ -6,12 +6,6 @@
 #define MAX_LINE_LEN 132
 #define MAX_EVENTS 500
 
-
-/*
-Each event count in cal data is the index for all info of that event
-(i.e. eCount = 1 have start date, end date, rule etc. for event 1)
-(ex. To access rule of the fifth event, eCount=5, rule[eCount])
-*/
 typedef struct {
         char st_date[MAX_EVENTS][MAX_LINE_LEN];
         char en_date[MAX_EVENTS][MAX_LINE_LEN];
@@ -21,58 +15,15 @@ typedef struct {
         int eCount;
     } cal;
 
-void read_file(char *filename, char need[MAX_EVENTS][MAX_LINE_LEN]);
-cal process_data(char need[MAX_EVENTS][MAX_LINE_LEN], cal data);
-void print_data(cal data, int from_y, int from_m, int from_d, int to_y, int to_m, int to_d);
-void sort_date(int *date_of_day, int size, cal data);
 void print_event(cal data,int m, int line_date, int first);
 void dt_format(char *formatted_time, const char *dt_time, const int len);
 void dt_increment(char *after, const char *before, int const num_days);
 
-
-int main(int argc, char *argv[])
+void print_events(int from_yy, int from_mm, int from_dd, int to_yy, int to_mm, int to_dd)
 {
-    int from_y = 0, from_m = 0, from_d = 0;
-    int to_y = 0, to_m = 0, to_d = 0;
-    char *filename = NULL;
-    int i; 
-
-    for (i = 0; i < argc; i++) {
-        if (strncmp(argv[i], "--start=", 8) == 0) {
-            sscanf(argv[i], "--start=%d/%d/%d", &from_y, &from_m, &from_d);
-        } else if (strncmp(argv[i], "--end=", 6) == 0) {
-            sscanf(argv[i], "--end=%d/%d/%d", &to_y, &to_m, &to_d);
-        } else if (strncmp(argv[i], "--file=", 7) == 0) {
-            filename = argv[i]+7;
-        }
-    }
-
-    if (from_y == 0 || to_y == 0 || filename == NULL) {
-        fprintf(stderr, 
-            "usage: %s --start=yyyy/mm/dd --end=yyyy/mm/dd --file=icsfile\n",
-            argv[0]);
-        exit(1);
-    }
-
-    /* Starting calling your own code from this point. */
-    // read from ics file
-    char need[MAX_EVENTS][MAX_LINE_LEN];
-    read_file(filename, need);
-    // process info
-    cal data;
-    data = process_data(need, data);
-     // print data
-    print_data(data, from_y, from_m, from_d, to_y, to_m, to_d);
-
-
-    exit(0);
+    
 }
 
-    /*
-    This function read from ics file and put each line of data into a 
-    2D array. If the file is null print "file can't be open" and exit.
-    Parameter:ics file name, the 2D array to store data
-    */
 void read_file(char *filename, char need[MAX_EVENTS][MAX_LINE_LEN]) {
     FILE* ics_file = fopen(filename,"r");
     if (ics_file == NULL) {
@@ -80,7 +31,7 @@ void read_file(char *filename, char need[MAX_EVENTS][MAX_LINE_LEN]) {
         exit(0);
     }
 
-    
+    // read from file
     char line[100]; 
     int j = 0;
     while ((fgets(line, 100, ics_file)) != NULL) {
@@ -90,12 +41,6 @@ void read_file(char *filename, char need[MAX_EVENTS][MAX_LINE_LEN]) {
     fclose(ics_file);
 }
 
-    /*
-    This function take a 2D array that has a line of data for each index.
-    It then match what that line is then copy it into cal data.
-    Parameter: 2D array, cal data to store
-    Return: cal struct
-    */
 cal process_data(char need[MAX_EVENTS][MAX_LINE_LEN], cal data) {
     int k=0;
     char want[MAX_LINE_LEN];
@@ -131,7 +76,7 @@ cal process_data(char need[MAX_EVENTS][MAX_LINE_LEN], cal data) {
             sscanf(need[k], "%*[^:]:%[^\n]", want);
             strcpy(data.summary[data.eCount], want);
         } else if (ptr8 != NULL) {
-            ;
+            NULL;
         } else if (ptr1 != NULL) {
             NULL;
         }
@@ -150,16 +95,36 @@ cal process_data(char need[MAX_EVENTS][MAX_LINE_LEN], cal data) {
     return data;
 }
 
-    /*
-    This fuction take data in cal and from/to year month day from cmd input and
-    print out event between those date.
-    This function call sort_date and print_event function to help sort the date
-    that need to be print in chronological order and to actually print it out.
-    Parameter: process data of cal struct, start and end date specify in cmd prompt.
-    */
+void sort_date(int *date_of_day, int size, cal data) {
+    int time[size];
+    char temp[30];
+    int hold;
+    int wait;
+
+    for (int n=0; n<size; n++) {
+        strcpy(temp, data.st_date[date_of_day[n]]);
+        sscanf(temp, "%*[^T]T%d", &time[n]);
+    }
+    
+
+    for (int o=0; o<=size-2; o++) {
+        for (int p=0; p<size-1; p++) {
+            if (time[p+1] < time[p]) {
+                wait = time[p];
+                time[p] = time[p+1];
+                time[p+1] = wait;
+                hold = date_of_day[p];
+                date_of_day[p] = date_of_day[p+1];
+                date_of_day[p+1] = hold;
+            }
+        }
+
+    }
+
+
+}
 
 void print_data(cal data, int from_y, int from_m, int from_d, int to_y, int to_m, int to_d) {
-
     int cur_y, cur_m, cur_d, end_y, end_m, end_d, st_y, st_m, st_d;
     char cur_date_full[MAX_LINE_LEN], cur_date[MAX_LINE_LEN];
     int line_date = 0;
@@ -168,21 +133,19 @@ void print_data(cal data, int from_y, int from_m, int from_d, int to_y, int to_m
     int date_of_day[MAX_LINE_LEN];
     int size = 0;
     int first = 0;
-    char temp[10];
 
     strcpy(cur_date_full, data.st_date[0]);
     sscanf(cur_date_full, "%4d%2d%2d%*[^T]T", &cur_y, &cur_m, &cur_d);
+    
 
     if ((cur_m == to_m && cur_d > to_d) || cur_m > to_m) {
         exit(0);
     } else if ((cur_m == from_m && cur_d < from_d) || cur_m < from_m) {
-        while (cur_m != from_m || cur_d != from_d) {
+        while (cur_m != from_m && cur_d != from_d) {
             dt_increment(cur_date_full, cur_date_full, 1);
             sscanf(cur_date_full, "%4d%2d%2d%*[^T]T", &cur_y, &cur_m, &cur_d);
         }
     } else {
-        sprintf(temp, "%4d%02d%02d", from_y, from_m, from_d);
-        strcpy(cur_date_full, temp);
         sscanf(cur_date_full, "%4d%2d%2d%*[^T]T", &cur_y, &cur_m, &cur_d);
     }
 
@@ -236,46 +199,51 @@ void print_data(cal data, int from_y, int from_m, int from_d, int to_y, int to_m
     }
 }
 
-    /*
-    This function sort the date of the day that need to be print.
-    Parameter: date of the day that need to be print as int array pointer, size of date of day, cal data
-    */
-void sort_date(int *date_of_day, int size, cal data) {
-    int time[size];
-    char temp[30];
-    int hold;
-    int wait;
 
-    for (int n=0; n<size; n++) {
-        strcpy(temp, data.st_date[date_of_day[n]]);
-        sscanf(temp, "%*[^T]T%d", &time[n]);
-    }
-    
 
-    for (int o=0; o<=size-2; o++) {
-        for (int p=0; p<size-1; p++) {
-            if (time[p+1] < time[p]) {
-                wait = time[p];
-                time[p] = time[p+1];
-                time[p+1] = wait;
-                hold = date_of_day[p];
-                date_of_day[p] = date_of_day[p+1];
-                date_of_day[p+1] = hold;
-            }
+int main(int argc, char *argv[])
+{
+    int from_y = 0, from_m = 0, from_d = 0;
+    int to_y = 0, to_m = 0, to_d = 0;
+    char *filename = NULL;
+    int i; 
+
+    for (i = 0; i < argc; i++) {
+        if (strncmp(argv[i], "--start=", 8) == 0) {
+            sscanf(argv[i], "--start=%d/%d/%d", &from_y, &from_m, &from_d);
+        } else if (strncmp(argv[i], "--end=", 6) == 0) {
+            sscanf(argv[i], "--end=%d/%d/%d", &to_y, &to_m, &to_d);
+        } else if (strncmp(argv[i], "--file=", 7) == 0) {
+            filename = argv[i]+7;
         }
-
     }
 
+    if (from_y == 0 || to_y == 0 || filename == NULL) {
+        fprintf(stderr, 
+            "usage: %s --start=yyyy/mm/dd --end=yyyy/mm/dd --file=icsfile\n",
+            argv[0]);
+        exit(1);
+    }
 
+    /* Starting calling your own code from this point. */
+    print_events(from_y, from_m, from_d, to_y, to_m, to_d);
+
+    char need[MAX_EVENTS][MAX_LINE_LEN];
+    read_file(filename, need);
+
+    // process info
+    cal data;
+    data = process_data(need, data);
+
+
+    // print data
+    print_data(data, from_y, from_m, from_d, to_y, to_m, to_d);
+
+
+    exit(0);
 }
-
    
 
-    /*
-    This function formatted and print event that need to be print that day.
-    Parameter: cal data, event index m, line date to check to print the line after date,
-        first is to stop the first \n 
-    */
 
 void print_event(cal data, int m, int line_date, int first) {
     int len;
